@@ -13,6 +13,8 @@ interface WalletContextType {
   isConnected: boolean;
   balance: string | null;
   loading: boolean;
+  // Demo flag: true when we cannot sign real on-chain transactions
+  isDemoMode: boolean;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -22,6 +24,7 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [address, setAddress] = useState<string | null>(null);
   const [balance, setBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(true);
 
   useEffect(() => {
     // Check for stored wallet
@@ -35,6 +38,7 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           setAddress(restoredAccount.address.toString());
           contractService.setAccount(restoredAccount);
           loadBalance(restoredAccount);
+          setIsDemoMode(false);
         }).catch((error) => {
           console.error('Error restoring wallet:', error);
           localStorage.removeItem('wallet_address');
@@ -103,6 +107,9 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             const tempAccount = await Account.generate();
             setAccount(tempAccount);
             contractService.setAccount(tempAccount);
+            // We are in external wallet mode; contract calls will likely fail for writes,
+            // so keep demo mode enabled for safety.
+            setIsDemoMode(true);
             
             // Try to load balance using the address
             try {
@@ -142,6 +149,7 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         localStorage.setItem('wallet_address', addr);
         localStorage.setItem('wallet_secret_key', demoAccount.privateKey.toString());
         loadBalance(demoAccount);
+        setIsDemoMode(true);
         toast('Demo account created. Install Bearby or Massa Station for production use.', { 
           icon: 'ℹ️',
           duration: 5000 
@@ -159,6 +167,7 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setAccount(null);
     setAddress(null);
     setBalance(null);
+    setIsDemoMode(true);
     contractService.setAccount(null as any);
     localStorage.removeItem('wallet_address');
     localStorage.removeItem('wallet_secret_key');
@@ -176,6 +185,7 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         isConnected: !!account,
         balance,
         loading,
+        isDemoMode,
       }}
     >
       {children}

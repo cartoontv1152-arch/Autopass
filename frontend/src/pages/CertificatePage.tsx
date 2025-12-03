@@ -48,39 +48,9 @@ export const CertificatePage: React.FC = () => {
         setCertificates(cachedCerts as any);
       }
 
-      // Then try to load from contract
-      const certs: Certificate[] = [];
-      
-      // Try to fetch certificates by checking IDs (1-200 for more coverage)
-      for (let i = 1; i <= 200; i++) {
-        try {
-          const cert = await contractService.getCertificate(BigInt(i));
-          if (cert) {
-            // Filter certificates for this user
-            if (cert.issuer.toLowerCase() === address.toLowerCase() || 
-                cert.recipientName.toLowerCase().includes(address.toLowerCase())) {
-              certs.push(cert);
-              // Cache it
-              CertificateCacheService.cacheCertificate({
-                ...cert,
-                createdAt: Date.now(),
-              } as any, address);
-            }
-          }
-        } catch (error) {
-          // Certificate doesn't exist, continue
-          continue;
-        }
-      }
-      
-      // Merge cached and contract certificates
-      const allCerts = [...cachedCerts, ...certs];
-      const uniqueCerts = allCerts.filter((cert, index, self) =>
-        index === self.findIndex((c) => Number(c.id) === Number(cert.id))
-      );
-      
-      console.log(`Loaded ${uniqueCerts.length} total certificates`);
-      setCertificates(uniqueCerts as any);
+      // For hackathon/demo, we rely purely on cached certificates
+      console.log(`Certificates in cache for ${address}: ${cachedCerts.length}`);
+      setCertificates(cachedCerts as any);
     } catch (error) {
       console.error('Error loading certificates:', error);
       // Keep cached certificates on error

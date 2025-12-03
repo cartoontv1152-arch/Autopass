@@ -21,7 +21,7 @@ import toast from 'react-hot-toast';
 type Tab = 'profile' | 'create' | 'passes' | 'subscribers' | 'earnings' | 'certificates';
 
 export const CreatorDashboard: React.FC = () => {
-  const { address, isConnected } = useWallet();
+  const { address, isConnected, isDemoMode } = useWallet();
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [profile, setProfile] = useState<any>(null);
   const [passes, setPasses] = useState<any[]>([]);
@@ -191,60 +191,56 @@ export const CreatorDashboard: React.FC = () => {
         createdAt: Date.now(),
       };
 
-      try {
-        // Try to create pass on-chain
-        const txId = await contractService.createPass({
-          name: passForm.name,
-          description: passForm.description,
-          category: passForm.category,
-          passType: passForm.passType,
-          price,
-          tokenAddress: 'MAS',
-          durationSeconds,
-          autoRenewAllowed: passForm.autoRenewAllowed,
-          maxSupply,
-          metadataCid,
-        });
-
-        console.log('Pass creation transaction ID:', txId);
-        toast.success('Transaction submitted!', { id: 'create-pass' });
-        
-        // Try to get the pass ID from transaction or estimate it
-        // For now, we'll use a temporary ID and update it later
-        let estimatedPassId = BigInt(1);
+      if (isDemoMode) {
+        // Pure local creation for demo
+        newPass.id = BigInt(Date.now()); // Unique local ID
+        PassCacheService.cachePass(address || '', newPass);
+        setPasses([...passes, newPass as any]);
+        toast.success('Pass created locally for demo!', { id: 'create-pass' });
+      } else {
         try {
-          // Try to get the latest pass counter or estimate
-          // This is a workaround - in production, parse the transaction result
-          const existingPasses = PassCacheService.getCreatorPasses(address || '');
-          estimatedPassId = BigInt(existingPasses.length + 1);
-        } catch (e) {
-          console.log('Could not estimate pass ID');
-        }
+          // Try to create pass on-chain
+          const txId = await contractService.createPass({
+            name: passForm.name,
+            description: passForm.description,
+            category: passForm.category,
+            passType: passForm.passType,
+            price,
+            tokenAddress: 'MAS',
+            durationSeconds,
+            autoRenewAllowed: passForm.autoRenewAllowed,
+            maxSupply,
+            metadataCid,
+          });
 
-        newPass.id = estimatedPassId;
-        
-        // Cache immediately so it shows up right away
-        PassCacheService.cachePass(address || '', newPass);
-        console.log('Pass cached immediately with ID:', estimatedPassId);
-        
-        // Update passes list immediately
-        setPasses([...passes, newPass as any]);
-        
-        toast.success('Pass created! It may take a moment to appear on-chain.', { id: 'create-pass' });
-        
-        // Wait a bit then try to refresh from contract
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // Try to load from contract (this will update the ID if we got it wrong)
-        await loadData();
-        
-      } catch (error: any) {
-        console.error('Error creating pass on-chain:', error);
-        // Even if on-chain fails, cache it locally
-        newPass.id = BigInt(Date.now()); // Use timestamp as temporary ID
-        PassCacheService.cachePass(address || '', newPass);
-        setPasses([...passes, newPass as any]);
-        toast.error('Pass created locally. On-chain creation may have failed.', { id: 'create-pass' });
+          console.log('Pass creation transaction ID:', txId);
+          toast.success('Transaction submitted!', { id: 'create-pass' });
+          
+          // Estimate ID for now
+          let estimatedPassId = BigInt(1);
+          try {
+            const existingPasses = PassCacheService.getCreatorPasses(address || '');
+            estimatedPassId = BigInt(existingPasses.length + 1);
+          } catch (e) {
+            console.log('Could not estimate pass ID');
+          }
+
+          newPass.id = estimatedPassId;
+          
+          PassCacheService.cachePass(address || '', newPass);
+          setPasses([...passes, newPass as any]);
+          
+          toast.success('Pass created! It may take a moment to appear on-chain.', { id: 'create-pass' });
+          
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          await loadData();
+        } catch (error: any) {
+          console.error('Error creating pass on-chain:', error);
+          newPass.id = BigInt(Date.now());
+          PassCacheService.cachePass(address || '', newPass);
+          setPasses([...passes, newPass as any]);
+          toast.error('Pass created locally. On-chain creation may have failed.', { id: 'create-pass' });
+        }
       }
       
       setPassForm({
@@ -284,51 +280,41 @@ export const CreatorDashboard: React.FC = () => {
 
       const metadataCid = await ipfsService.uploadJSON(metadata);
 
-      try {
-        await contractService.issueCertificate({
-          recipientName: certForm.recipientName,
-          organizationName: certForm.organizationName,
-          courseName: certForm.courseName,
-          issueDate: certForm.issueDate,
-          certificateType: certForm.certificateType,
-          metadataCid,
-          passId: BigInt(certForm.passId),
-        });
+      const newCert = {
+        id: BigInt(Date.now()),
+        passId: BigInt(certForm.passId),
+        issuer: address || '',
+        recipientName: certForm.recipientName,
+        organizationName: certForm.organizationName,
+        courseName: certForm.courseName,
+        issueDate: certForm.issueDate,
+        certificateType: certForm.certificateType,
+        metadataCid,
+        createdAt: Date.now(),
+      };
 
-        // Cache the certificate immediately
-        const newCert = {
-          id: BigInt(Date.now()), // Temporary ID
-          passId: BigInt(certForm.passId),
-          issuer: address || '',
-          recipientName: certForm.recipientName,
-          organizationName: certForm.organizationName,
-          courseName: certForm.courseName,
-          issueDate: certForm.issueDate,
-          certificateType: certForm.certificateType,
-          metadataCid,
-          createdAt: Date.now(),
-        };
-        
-        CertificateCacheService.cacheCertificate(newCert as any);
-        toast.success('Certificate issued successfully!');
-      } catch (error: any) {
-        console.error('Error issuing certificate:', error);
-        toast.error('Failed to issue certificate on-chain. Stored locally.');
-        
-        // Cache locally even if on-chain fails
-        const newCert = {
-          id: BigInt(Date.now()),
-          passId: BigInt(certForm.passId),
-          issuer: address || '',
-          recipientName: certForm.recipientName,
-          organizationName: certForm.organizationName,
-          courseName: certForm.courseName,
-          issueDate: certForm.issueDate,
-          certificateType: certForm.certificateType,
-          metadataCid,
-          createdAt: Date.now(),
-        };
-        CertificateCacheService.cacheCertificate(newCert as any);
+      if (isDemoMode) {
+        // Purely local certificate issue
+        CertificateCacheService.cacheCertificate(newCert as any, address || undefined);
+        toast.success('Certificate issued locally for demo!');
+      } else {
+        try {
+          await contractService.issueCertificate({
+            recipientName: certForm.recipientName,
+            organizationName: certForm.organizationName,
+            courseName: certForm.courseName,
+            issueDate: certForm.issueDate,
+            certificateType: certForm.certificateType,
+            metadataCid,
+            passId: BigInt(certForm.passId),
+          });
+          CertificateCacheService.cacheCertificate(newCert as any, address || undefined);
+          toast.success('Certificate issued successfully!');
+        } catch (error: any) {
+          console.error('Error issuing certificate:', error);
+          CertificateCacheService.cacheCertificate(newCert as any, address || undefined);
+          toast.error('Certificate stored locally. On-chain issue may have failed.');
+        }
       }
       setCertForm({
         recipientName: '',

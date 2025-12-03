@@ -28,7 +28,7 @@ interface Pass {
 export const PassDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { address, isConnected } = useWallet();
+  const { address, isConnected, isDemoMode } = useWallet();
   const [pass, setPass] = useState<Pass | null>(null);
   const [metadata, setMetadata] = useState<any>(null);
   const [hasAccess, setHasAccess] = useState(false);
@@ -44,16 +44,26 @@ export const PassDetail: React.FC = () => {
 
   const loadPass = async () => {
     if (!id) return;
-    
+
     try {
       setLoading(true);
       const passId = BigInt(id);
-      
+
       // Try to load from contract first
       let passData: Pass | null = null;
       try {
         passData = await contractService.getPass(passId);
         console.log('Loaded pass from contract:', passData);
+
+        // If contract returns null (no pass), fall back to cache
+        if (!passData) {
+          console.log('Contract returned null, trying cache...');
+          const cachedPass = PassCacheService.getPass(passId);
+          if (cachedPass) {
+            passData = cachedPass as any;
+            console.log('Loaded pass from cache after null contract result:', passData);
+          }
+        }
       } catch (error) {
         console.log('Contract load failed, trying cache...');
         // Fallback to cache
@@ -63,10 +73,21 @@ export const PassDetail: React.FC = () => {
           console.log('Loaded pass from cache:', passData);
         }
       }
-      
+
       if (passData) {
         setPass(passData);
-        
+
+        // Ensure we have a cached copy for fast subsequent loads
+        try {
+          PassCacheService.cachePass(passData.creator, {
+            ...(passData as any),
+            tokenAddress: (passData as any).tokenAddress || 'MAS',
+            createdAt: Date.now(),
+          } as any);
+        } catch (e) {
+          console.warn('Failed to cache pass from detail view:', e);
+        }
+
         // Load metadata
         try {
           const meta = await ipfsService.fetchFromIPFS(passData.metadataCid);
@@ -107,15 +128,24 @@ export const PassDetail: React.FC = () => {
     try {
       setBuying(true);
       const passId = BigInt(id || '0');
-      await contractService.buyPass(passId, autoRenew, pass.price);
-      toast.success('Pass purchased successfully!');
+
+      // In demo mode we skip real on-chain call to avoid insufficient balance errors
+      if (isDemoMode) {
+        toast.success('Pass unlocked locally for demo!');
+      } else {
+        try {
+          await contractService.buyPass(passId, autoRenew, pass.price);
+          toast.success('Pass purchased successfully!');
+        } catch (error: any) {
+          console.error('On-chain buyPass failed:', error);
+          toast.error(error.message || 'Failed to purchase pass on-chain.');
+        }
+      }
+
       setTimeout(() => {
         loadPass();
         navigate('/dashboard');
-      }, 2000);
-    } catch (error: any) {
-      console.error('Error buying pass:', error);
-      toast.error(error.message || 'Failed to purchase pass');
+      }, 1500);
     } finally {
       setBuying(false);
     }

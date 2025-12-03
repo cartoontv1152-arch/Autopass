@@ -6,6 +6,7 @@ import { Navbar } from './components/Navbar';
 import { Landing } from './pages/Landing';
 import { Discover } from './pages/Discover';
 import { PassDetail } from './pages/PassDetail';
+import { TicketDetail } from './pages/TicketDetail';
 import { CreatorDashboard } from './pages/CreatorDashboard';
 import { UserDashboard } from './pages/UserDashboard';
 import { CertificatePage } from './pages/CertificatePage';
@@ -25,6 +26,7 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/discover" element={<Discover />} />
             <Route path="/pass/:id" element={<PassDetail />} />
+            <Route path="/ticket/:id" element={<TicketDetail />} />
             <Route path="/creator" element={<CreatorDashboard />} />
             <Route path="/dashboard" element={<UserDashboard />} />
             <Route path="/certificates" element={<CertificatePage />} />

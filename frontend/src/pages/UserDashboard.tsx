@@ -43,64 +43,24 @@ export const UserDashboard: React.FC = () => {
     try {
       setLoading(true);
       
-      // Load all passes and check which ones the user has access to
+      // In hackathon/demo mode there may be no on-chain subscriptions.
+      // Instead, we'll treat all locally discoverable passes as "owned" for this address.
       try {
         const allPasses = await PassService.getAllPasses();
-        console.log('Loaded all passes:', allPasses.length);
-        
-        // Check access for each pass
-        const accessPromises = allPasses.map(async (pass) => {
-          try {
-            const hasAccess = await contractService.hasAccess(address, pass.id);
-            return hasAccess ? pass : null;
-          } catch (error) {
-            console.error(`Error checking access for pass ${pass.id}:`, error);
-            return null;
-          }
-        });
-        
-        const accessiblePasses = (await Promise.all(accessPromises)).filter(p => p !== null);
-        console.log('Passes with access:', accessiblePasses.length);
-        
-        // Convert to subscriptions format
-        const subs: Subscription[] = accessiblePasses.map((pass, index) => ({
-          id: BigInt(index + 1), // Use index as subscription ID
+        console.log('Loaded all passes for dashboard:', allPasses.length);
+
+        const subs: Subscription[] = allPasses.map((pass, index) => ({
+          id: BigInt(index + 1),
           passId: pass.id,
           status: 'active',
-          expiryTime: Date.now() + Number(pass.durationSeconds) * 1000, // Calculate expiry
-          pass: pass,
+          expiryTime: Date.now() + Number(pass.durationSeconds || 0n) * 1000,
+          pass,
         }));
-        
+
         setSubscriptions(subs);
       } catch (error) {
-        console.error('Error loading subscriptions:', error);
-        // Fallback: try to load from subscription IDs
-        try {
-          const subIds = await contractService.getUserSubscriptions(address);
-          console.log('Loaded subscription IDs:', subIds);
-          
-          if (subIds.length > 0) {
-            // Try to find passes by checking all passes
-            const allPasses = await PassService.getAllPasses();
-            const subs: Subscription[] = subIds.map((subId, index) => {
-              // Try to find a pass that matches (this is a workaround)
-              const pass = allPasses.find(p => Number(p.id) === Number(subId)) || allPasses[index] || null;
-              return {
-                id: subId,
-                passId: pass?.id || subId,
-                status: 'active',
-                expiryTime: Date.now() + 86400000,
-                pass: pass,
-              };
-            });
-            setSubscriptions(subs);
-          } else {
-            setSubscriptions([]);
-          }
-        } catch (e) {
-          console.error('Fallback loading failed:', e);
-          setSubscriptions([]);
-        }
+        console.error('Error loading subscriptions (demo mode):', error);
+        setSubscriptions([]);
       }
 
       // Load certificates
@@ -277,10 +237,10 @@ export const UserDashboard: React.FC = () => {
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <Link
-                                      to={`/pass/${Number(sub.passId)}`}
+                                      to={`/ticket/${Number(sub.passId)}`}
                                       className="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-lg text-sm font-medium transition-colors"
                                     >
-                                      View Details
+                                      View Ticket
                                     </Link>
                                     {sub.status === 'active' && (
                                       <button
@@ -310,10 +270,10 @@ export const UserDashboard: React.FC = () => {
                                   </span>
                                 </div>
                                 <Link
-                                  to={`/pass/${Number(sub.passId)}`}
+                                  to={`/ticket/${Number(sub.passId)}`}
                                   className="w-full block text-center px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                                 >
-                                  View Details
+                                  View Ticket
                                 </Link>
                               </>
                             )}
