@@ -1,6 +1,5 @@
 // Pass Service - Helper to fetch and manage passes
 import { contractService } from './contract';
-import { PassCacheService, CachedPass } from './passCache';
 
 export interface PassData {
   id: bigint;

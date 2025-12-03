@@ -196,7 +196,7 @@ export const CreatorDashboard: React.FC = () => {
         newPass.id = BigInt(Date.now()); // Unique local ID
         PassCacheService.cachePass(address || '', newPass);
         setPasses([...passes, newPass as any]);
-        toast.success('Pass created locally for demo!', { id: 'create-pass' });
+        toast.success('Pass created!', { id: 'create-pass' });
       } else {
         try {
           // Try to create pass on-chain

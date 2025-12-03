@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Award, Download, Search, Calendar, User, Building2, RefreshCw } from 'lucide-react';
 import { useWallet } from '../contexts/WalletContext';
-import { contractService } from '../services/contract';
 import { certificateService, CertificateData } from '../services/certificate';
 import { CertificateCacheService } from '../services/certificateCache';
 import toast from 'react-hot-toast';
