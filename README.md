@@ -6,7 +6,7 @@ A fully on-chain, production-ready decentralized application (dApp) built on the
 
 **BUILDNET**: `AS1BDUyJj8K4wafPh4Gfz63uVKsoFjoKwLBZePiQKN1PrTcjHZYX`
 
-**YOUTUBE DEMO** : https://youtu.be/qdsY8BB4OV4
+**YOUTUBE DEMO** : [https://youtu.be/qdsY8BB4OV4](https://youtu.be/ju7eufk-0bA)
 **LIVE DEMO** : https://autopass.build.half-red.net
 
 ## 🌟 What is Massa Autopass?
